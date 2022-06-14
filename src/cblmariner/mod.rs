@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -27,4 +29,26 @@ pub struct PackageVer {
 #[serde(rename_all = "PascalCase")]
 pub struct Repository {
     pub repo: Vec<Package>,
+}
+
+impl Package {
+    pub fn requires(&self) -> impl Iterator<Item = &str> + '_ {
+        self.requires
+            .iter()
+            .flat_map(|v| v.iter().map(|p| p.name.as_str()))
+    }
+
+    pub fn build_requires(&self) -> impl Iterator<Item = &str> + '_ {
+        self.build_requires
+            .iter()
+            .flat_map(|v| v.iter().map(|p| p.name.as_str()))
+    }
+
+    pub fn dependency(&self) -> impl Iterator<Item = &str> + '_ {
+        self.build_requires()
+            .into_iter()
+            .chain(self.requires().into_iter())
+            .sorted()
+            .dedup()
+    }
 }
