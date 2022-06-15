@@ -1,23 +1,39 @@
 use std::collections::HashSet;
 use std::fs;
 
+use clap::Parser;
 use itertools::Itertools;
 use rayon::prelude::*;
 
 mod cblmariner;
 use cblmariner::Repository;
 
-fn main() -> std::io::Result<()> {
-    let it =
-        get_files_ending_with("/home/mfrw/mariner-org/CBL-Mariner/SPECS/", ".spec").par_bridge();
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about=None)]
+struct Args {
+    #[clap(short, long, value_parser)]
+    base_dir: String,
 
-    let str =
-        fs::read_to_string("/home/mfrw/mariner-org/CBL-Mariner/build/pkg_artifacts/specs.json")?;
+    #[clap(short, long, value_parser)]
+    specs_json_file: String,
+
+    #[clap(short, long, value_parser, default_value = ".spec")]
+    ends_with: String,
+
+    #[clap(short, long, value_parser)]
+    needle: String,
+}
+
+fn main() -> std::io::Result<()> {
+    let args = Args::parse();
+    let it = get_files_ending_with(&args.base_dir, &args.ends_with).par_bridge();
+
+    let str = fs::read_to_string(&args.specs_json_file)?;
     let rp: Repository = serde_json::from_str(&str)?;
     let st = rp
         .repo
         .into_iter()
-        .filter(|p| p.dependency().contains(&"golang"))
+        .filter(|p| p.dependency().find(|&d| d == &args.needle).is_some())
         .filter_map(|p| p.spec_path)
         .sorted()
         .dedup()
@@ -29,7 +45,7 @@ fn main() -> std::io::Result<()> {
         let name = p.rsplit_once("/").unwrap().1;
         st.contains(name)
     })
-    .for_each(|p| print!("{p} "));
+    .for_each(|p| println!("{p}"));
 
     Ok(())
 }
